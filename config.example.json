@@ -1,0 +1,5 @@
+{
+  "_comment": "Copy this file to config.json and paste your free API key(s) for true real-time data. Get a free key at https://twelvedata.com (8 req/min on the free tier). Then restart the server. The focused security view and the compare view will use live data; bulk monitor panels fall back to Yahoo if the rate limit is hit.",
+  "twelvedata_key": "",
+  "finnhub_key": ""
+}

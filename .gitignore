@@ -1,0 +1,8 @@
+# Never share your API key
+config.json
+
+# Junk
+.DS_Store
+__pycache__/
+*.pyc
+.claude/

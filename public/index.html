@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TERMINAL</title>
+  <link rel="stylesheet" href="/styles.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' fill='black'/><text x='16' y='23' font-size='22' text-anchor='middle' fill='%23ff8800' font-family='monospace'>T</text></svg>" />
+</head>
+<body>
+  <!-- TOP BAR -->
+  <header id="topbar">
+    <div class="brand"><span class="logo">▮</span> TERMINAL</div>
+    <form id="cmdform" autocomplete="off">
+      <span class="prompt">&gt;</span>
+      <input id="cmd" type="text" placeholder="Type a ticker (AAPL, ^GSPC, BTC-USD)  ·  HELP for commands" spellcheck="false" />
+      <div id="autocomplete" class="autocomplete hidden"></div>
+    </form>
+    <div class="topinfo">
+      <button id="bell" class="bell" title="Price alerts">🔔<span id="bell-count" class="bell-count hidden">0</span></button>
+      <span id="status" class="status">● LIVE</span>
+      <span id="clock" class="clock">--:--:--</span>
+    </div>
+  </header>
+
+  <!-- SECTOR KEY BAR -->
+  <nav id="sectorbar">
+    <button class="sk" data-grp="INDICES">INDEX</button>
+    <button class="sk" data-grp="EQUITY">EQUITY</button>
+    <button class="sk" data-grp="EUROPE">EU</button>
+    <button class="sk" data-grp="ASIA">ASIA</button>
+    <button class="sk" data-grp="RATES">GOVT</button>
+    <button class="sk" data-grp="COMMODITIES">CMDTY</button>
+    <button class="sk" data-grp="FX">CRNCY</button>
+    <button class="sk" data-grp="CRYPTO">CRYPTO</button>
+    <span class="sep"></span>
+    <button class="sk navbtn" data-view="home">MON &lt;HOME&gt;</button>
+    <button class="sk navbtn" data-view="heat">HEAT &lt;IMAP&gt;</button>
+    <button class="sk navbtn" data-view="comp">COMP &lt;G&gt;</button>
+    <button class="sk navbtn" data-view="screen">SCREEN &lt;EQS&gt;</button>
+    <button class="sk navbtn" data-view="tech">TECH &lt;STUDY&gt;</button>
+    <button class="sk navbtn" data-cmd="alerts">ALRT</button>
+    <button class="sk navbtn" data-view="news">TOP &lt;NEWS&gt;</button>
+    <button class="sk navbtn" data-cmd="help">HELP</button>
+  </nav>
+
+  <!-- HOME / MARKET MONITOR VIEW -->
+  <main id="view-home" class="view">
+    <section class="grid-home">
+      <div class="panel" id="p-indices">
+        <div class="phead"><span>WORLD INDICES</span><span class="phead-r">WEI</span></div>
+        <div class="ptable" data-grid="INDICES"></div>
+      </div>
+      <div class="panel" id="p-fx">
+        <div class="phead"><span>FX MAJORS</span><span class="phead-r">FXC</span></div>
+        <div class="ptable" data-grid="FX"></div>
+      </div>
+      <div class="panel" id="p-cmdty">
+        <div class="phead"><span>COMMODITIES</span><span class="phead-r">CMDTY</span></div>
+        <div class="ptable" data-grid="COMMODITIES"></div>
+      </div>
+      <div class="panel" id="p-rates">
+        <div class="phead"><span>RATES / YIELDS</span><span class="phead-r">GOVT</span></div>
+        <div class="ptable" data-grid="RATES"></div>
+      </div>
+      <div class="panel" id="p-equity">
+        <div class="phead"><span>US EQUITIES</span><span class="phead-r">EQS</span></div>
+        <div class="ptable" data-grid="EQUITY"></div>
+      </div>
+      <div class="panel" id="p-europe">
+        <div class="phead"><span>EUROPE (ADR)</span><span class="phead-r">EU</span></div>
+        <div class="ptable" data-grid="EUROPE"></div>
+      </div>
+      <div class="panel" id="p-asia">
+        <div class="phead"><span>ASIA (ADR)</span><span class="phead-r">ASIA</span></div>
+        <div class="ptable" data-grid="ASIA"></div>
+      </div>
+      <div class="panel" id="p-crypto">
+        <div class="phead"><span>CRYPTO</span><span class="phead-r">VCCY</span></div>
+        <div class="ptable" data-grid="CRYPTO"></div>
+      </div>
+      <div class="panel" id="p-watch">
+        <div class="phead">
+          <span>WATCHLIST</span>
+          <span class="phead-r watch-add-wrap">
+            <form id="watchaddform" class="watchadd hidden" autocomplete="off">
+              <input id="watchadd" type="text" placeholder="AAPL, BTC-USD, ASML…" spellcheck="false" />
+              <div id="watchac" class="autocomplete hidden"></div>
+            </form>
+            <button id="addwatch" title="Add a symbol to your watchlist">+ ADD</button>
+          </span>
+        </div>
+        <div class="ptable" id="watchtable"></div>
+      </div>
+      <div class="panel panel-news" id="p-news-home">
+        <div class="phead"><span>TOP NEWS</span><span class="phead-r">N</span></div>
+        <div class="newslist" id="homenews"></div>
+      </div>
+    </section>
+  </main>
+
+  <!-- SECURITY VIEW -->
+  <main id="view-sec" class="view hidden">
+    <!-- quote header -->
+    <section id="sec-header" class="sec-header">
+      <div class="sh-id">
+        <div class="sh-ticker" id="sh-ticker">—</div>
+        <div class="sh-name" id="sh-name">—</div>
+        <div class="sh-exch" id="sh-exch">—</div>
+      </div>
+      <div class="sh-price">
+        <div class="sh-last" id="sh-last">—</div>
+        <div class="sh-chg" id="sh-chg">—</div>
+      </div>
+      <div class="sh-stats" id="sh-stats"></div>
+      <div class="sh-actions">
+        <button id="act-alert" title="Set a price alert for this security">+ ALERT</button>
+        <button id="act-watch2" title="Add to watchlist">+ WATCH</button>
+        <button id="act-csv" title="Download OHLCV + stats as CSV (opens in Excel)">CSV</button>
+        <button id="act-print" title="Print / save as PDF">PDF</button>
+      </div>
+    </section>
+
+    <section class="grid-sec">
+      <!-- chart panel -->
+      <div class="panel panel-chart">
+        <div class="phead">
+          <span id="chart-title">PRICE</span>
+          <span class="phead-r chart-controls">
+            <span class="rngs" id="ranges"></span>
+            <span class="ctypes" id="ctypes"></span>
+            <span class="cmas" id="cmas"></span>
+            <span class="cinds" id="cinds"></span>
+          </span>
+        </div>
+        <div class="chart-wrap"><canvas id="chart"></canvas></div>
+      </div>
+
+      <!-- key stats -->
+      <div class="panel panel-stats">
+        <div class="phead"><span>KEY STATISTICS</span><span class="phead-r">DES</span></div>
+        <div id="keystats" class="keystats"></div>
+      </div>
+
+      <!-- profile -->
+      <div class="panel panel-profile">
+        <div class="phead"><span>COMPANY / PROFILE</span><span class="phead-r">CN</span></div>
+        <div id="profile" class="profile"></div>
+      </div>
+
+      <!-- news -->
+      <div class="panel panel-secnews">
+        <div class="phead"><span>NEWS</span><span class="phead-r">CN</span></div>
+        <div id="secnews" class="newslist"></div>
+      </div>
+    </section>
+  </main>
+
+  <!-- HEATMAP VIEW -->
+  <main id="view-heat" class="view hidden">
+    <div class="panel heat-panel">
+      <div class="phead"><span>MARKET HEAT MAP — % CHANGE BY SECTOR</span><span class="phead-r">IMAP</span></div>
+      <div id="heatgrid" class="heatgrid"></div>
+    </div>
+  </main>
+
+  <!-- COMPARE VIEW -->
+  <main id="view-comp" class="view hidden">
+    <section class="comp-header">
+      <form id="compform" autocomplete="off">
+        <span class="prompt">+</span>
+        <input id="compinput" type="text" placeholder="Add a symbol to compare (e.g. MSFT)…" spellcheck="false" />
+      </form>
+      <div id="compchips" class="compchips"></div>
+      <span class="comp-ranges" id="compranges"></span>
+    </section>
+    <div class="panel panel-comp">
+      <div class="phead"><span>RELATIVE PERFORMANCE — % CHANGE (NORMALIZED)</span><span class="phead-r">COMP</span></div>
+      <div class="comp-wrap"><canvas id="compchart"></canvas></div>
+    </div>
+  </main>
+
+  <!-- SCREENER VIEW -->
+  <main id="view-screen" class="view hidden">
+    <section class="screen-header">
+      <div class="screen-presets" id="screen-presets">
+        <button data-preset="all" class="active">ALL</button>
+        <button data-preset="gainers">▲ GAINERS</button>
+        <button data-preset="losers">▼ LOSERS</button>
+        <button data-preset="high52">NEAR 52W HIGH</button>
+        <button data-preset="low52">NEAR 52W LOW</button>
+        <button data-preset="active">MOST ACTIVE</button>
+      </div>
+      <div class="screen-filters">
+        <label>%Chg ≥ <input id="f-pmin" type="number" step="any" placeholder="−∞" /></label>
+        <label>%Chg ≤ <input id="f-pmax" type="number" step="any" placeholder="+∞" /></label>
+        <label>Price ≥ <input id="f-prmin" type="number" step="any" placeholder="0" /></label>
+        <label>Price ≤ <input id="f-prmax" type="number" step="any" placeholder="∞" /></label>
+        <button id="f-reset">RESET</button>
+        <span id="screen-count" class="screen-count"></span>
+      </div>
+    </section>
+    <div class="panel panel-screen">
+      <div class="phead"><span>EQUITY SCREENER</span><span class="phead-r">EQS</span></div>
+      <div class="screen-table-wrap"><div id="screen-table" class="screen-table"></div></div>
+    </div>
+  </main>
+
+  <!-- TECHNICAL ANALYSIS VIEW -->
+  <main id="view-tech" class="view hidden">
+    <section class="tech-header">
+      <div class="th-id"><span id="th-sym">—</span><span id="th-last" class="th-last">—</span><span id="th-chg" class="th-chg"></span></div>
+      <span class="tech-note">Daily · 1Y · type a ticker in the command bar to change the security · summary updates with price</span>
+    </section>
+    <div class="tech-grid">
+      <div class="panel">
+        <div class="phead"><span>SUMMARY</span><span class="phead-r" id="tech-verdict-tag"></span></div>
+        <div id="tech-summary" class="tech-summary"></div>
+      </div>
+      <div class="panel">
+        <div class="phead"><span>OSCILLATORS</span><span class="phead-r">14 / 20 periods</span></div>
+        <div id="tech-osc" class="tech-table"></div>
+      </div>
+      <div class="panel">
+        <div class="phead"><span>MOVING AVERAGES</span><span class="phead-r">SMA &amp; EMA</span></div>
+        <div id="tech-ma" class="tech-table"></div>
+      </div>
+    </div>
+  </main>
+
+  <!-- TOAST NOTIFICATIONS -->
+  <div id="toast"></div>
+
+  <!-- STATUS / FOOTER -->
+  <footer id="statusbar">
+    <span id="sb-left">READY</span>
+    <span id="sb-ticker" class="sb-ticker"></span>
+    <span id="sb-right">Data: Yahoo Finance (delayed) · educational use</span>
+  </footer>
+
+  <!-- ALERTS OVERLAY -->
+  <div id="alerts" class="overlay hidden">
+    <div class="overlay-box">
+      <div class="overlay-head">PRICE ALERTS <button id="alerts-close">ESC ✕</button></div>
+      <div class="overlay-body">
+        <form id="alertform" class="alertform">
+          <input id="al-sym" type="text" placeholder="SYMBOL" spellcheck="false" />
+          <select id="al-op"><option value="above">crosses ABOVE ≥</option><option value="below">crosses BELOW ≤</option></select>
+          <input id="al-price" type="number" step="any" placeholder="Price" />
+          <button type="submit">+ ADD ALERT</button>
+        </form>
+        <div id="alertlist" class="alertlist"></div>
+        <div class="helpnote">Alerts are checked every ~20s against live prices and fire a desktop notification (allow notifications when prompted). They persist in your browser.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HELP OVERLAY -->
+  <div id="help" class="overlay hidden">
+    <div class="overlay-box">
+      <div class="overlay-head">HELP — COMMAND REFERENCE <button id="help-close">ESC ✕</button></div>
+      <div class="overlay-body">
+        <table class="helptable">
+          <tr><td><b>AAPL</b></td><td>Load a security (any Yahoo symbol: <code>MSFT</code>, <code>^GSPC</code>, <code>BTC-USD</code>, <code>EURUSD=X</code>, <code>GC=F</code>, <code>AIR.PA</code>)</td></tr>
+          <tr><td><b>AAPL US Equity</b></td><td>Bloomberg-style suffix is accepted and stripped (<code>EQUITY</code>, <code>INDEX</code>, <code>CURNCY</code>, <code>GO</code>)</td></tr>
+          <tr><td><b>HOME</b> / <b>MON</b></td><td>Market monitor (indices, FX, commodities, rates, crypto)</td></tr>
+          <tr><td><b>TOP</b> / <b>N</b></td><td>Top market news</td></tr>
+          <tr><td><b>HEAT</b> / <b>IMAP</b></td><td>Market heat map — % change by sector (click a tile to open it)</td></tr>
+          <tr><td><b>COMP</b> <i>[A B C]</i></td><td>Compare normalized % performance, e.g. <code>COMP AAPL MSFT NVDA</code> (or add symbols in the view)</td></tr>
+          <tr><td><b>EQS</b> / <b>SCREEN</b></td><td>Equity screener — filter/sort a stock universe by %chg, price, 52W range and volume; presets for gainers/losers/most-active</td></tr>
+          <tr><td><b>Indicators</b></td><td>In the chart header toggle: BB, EMA, VWAP, FIB (overlays) · RSI, MACD, STOCH, ATR, OBV (sub-panels) · plus MA20/50/200</td></tr>
+          <tr><td><b>ALRT</b></td><td>Price alerts — fire a desktop notification when a symbol crosses your level (🔔 in the top bar)</td></tr>
+          <tr><td><b>CSV / PDF</b></td><td>In the security header: export OHLCV + stats to CSV (Excel), or print/save the snapshot as PDF</td></tr>
+          <tr><td><b>WEI</b></td><td>World equity indices monitor</td></tr>
+          <tr><td><b>/query</b> or <b>SE query</b></td><td>Search for a company / symbol</td></tr>
+          <tr><td><b>W</b></td><td>Jump to watchlist</td></tr>
+          <tr><td><b>HELP</b></td><td>This screen</td></tr>
+        </table>
+        <div class="helpnote">
+          Keyboard: <kbd>/</kbd> focus command line · <kbd>Enter</kbd> run · <kbd>Esc</kbd> close · <kbd>↑</kbd>/<kbd>↓</kbd> autocomplete
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/chart.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>
