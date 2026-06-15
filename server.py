@@ -408,6 +408,12 @@ def fetch_chart(symbol, rng="6mo", interval="1d", use_provider=False):
     cached = CACHE.get(key)
     if cached:
         return cached
+    # 0) crypto -> CoinGecko OHLC (accurate, history to 5y/max)
+    if _is_crypto(symbol):
+        cg = _coingecko_chart(symbol, rng)
+        if cg:
+            CACHE.set(key, cg, 60 if rng in ("1d", "5d") else 180)
+            return cg
     # 1) real-time provider first — only for the focused security view, to stay
     #    within the free-tier rate limit (bulk monitor/heatmap use Yahoo/sim).
     if use_provider and TD_KEY:
@@ -713,18 +719,146 @@ def _td_analyst(symbol):
     return out or None
 
 
+# ---------------------------------------------------------------------------
+# CoinGecko — accurate, key-less crypto data: real-time price + 24h change,
+# market cap / supply / ATH, and OHLC history out to 5 years. Powers crypto
+# quotes, charts and the "analysis" panel.
+# ---------------------------------------------------------------------------
+CG_IDS = {
+    "BTC-USD": "bitcoin", "ETH-USD": "ethereum", "BNB-USD": "binancecoin", "SOL-USD": "solana",
+    "XRP-USD": "ripple", "ADA-USD": "cardano", "DOGE-USD": "dogecoin", "AVAX-USD": "avalanche-2",
+    "LINK-USD": "chainlink", "DOT-USD": "polkadot", "LTC-USD": "litecoin", "BCH-USD": "bitcoin-cash",
+    "TRX-USD": "tron", "XLM-USD": "stellar", "UNI-USD": "uniswap", "SHIB-USD": "shiba-inu",
+}
+CG_DAYS = {"1d": 1, "5d": 7, "1mo": 30, "6mo": 180, "ytd": 365, "1y": 365, "5y": 1825, "max": "max"}
+
+
+def _is_crypto(sym):
+    return sym in CG_IDS
+
+
+def _cg_get(path):
+    return _json_get("https://api.coingecko.com/api/v3" + path)
+
+
+def _coingecko_quotes(symbols):
+    ids = [CG_IDS[s] for s in symbols if s in CG_IDS]
+    if not ids:
+        return {}
+    try:
+        d = _cg_get("/simple/price?ids=" + ",".join(ids)
+                    + "&vs_currencies=usd&include_market_cap=true&include_24hr_change=true&include_24hr_vol=true")
+    except Exception:
+        return {}
+    id2sym = {CG_IDS[s]: s for s in symbols if s in CG_IDS}
+    out = {}
+    for cid, info in (d or {}).items():
+        sym = id2sym.get(cid)
+        if not sym:
+            continue
+        price, chg = info.get("usd"), info.get("usd_24h_change")
+        prev = (price / (1 + chg / 100)) if (price is not None and chg is not None) else None
+        out[sym] = {
+            "symbol": sym, "shortName": sym.replace("-USD", ""), "price": price,
+            "previousClose": prev, "change": (price - prev) if (price is not None and prev is not None) else None,
+            "changePct": chg, "currency": "USD", "exchange": "Crypto",
+            "marketCap": info.get("usd_market_cap"), "volume": info.get("usd_24h_vol"),
+            "fiftyTwoWeekHigh": None, "fiftyTwoWeekLow": None, "source": "live",
+        }
+    return out
+
+
+def _coingecko_chart(symbol, rng):
+    cid = CG_IDS[symbol]
+    days = CG_DAYS.get(rng, 365)
+    try:
+        ohlc = _cg_get(f"/coins/{cid}/ohlc?vs_currency=usd&days={days}")
+    except Exception:
+        return None
+    if not isinstance(ohlc, list) or not ohlc:
+        return None
+    candles = [{"t": int(p[0] / 1000), "o": p[1], "h": p[2], "l": p[3], "c": p[4], "v": 0}
+               for p in ohlc if isinstance(p, list) and len(p) >= 5]
+    if not candles:
+        return None
+    last = candles[-1]["c"]
+    prev = candles[-2]["c"] if len(candles) > 1 else last
+    mcap = None
+    try:
+        sp = _cg_get(f"/simple/price?ids={cid}&vs_currencies=usd&include_market_cap=true&include_24hr_change=true")
+        info = (sp or {}).get(cid, {})
+        cur, chg = info.get("usd"), info.get("usd_24h_change")
+        if cur is not None:
+            last = cur
+            candles[-1]["c"] = cur
+            if chg is not None:
+                prev = cur / (1 + chg / 100)
+        mcap = info.get("usd_market_cap")
+    except Exception:
+        pass
+    hi = max(c["h"] for c in candles)
+    lo = min(c["l"] for c in candles)
+    return {
+        "symbol": symbol, "currency": "USD", "exchangeName": "CoinGecko",
+        "shortName": symbol.replace("-USD", ""), "longName": None,
+        "regularMarketPrice": last, "previousClose": prev,
+        "regularMarketDayHigh": candles[-1]["h"], "regularMarketDayLow": candles[-1]["l"],
+        "regularMarketVolume": 0, "fiftyTwoWeekHigh": hi, "fiftyTwoWeekLow": lo,
+        "regularMarketTime": candles[-1]["t"], "candles": candles, "source": "live", "marketCap": mcap,
+    }
+
+
+def _coingecko_summary(symbol):
+    cid = CG_IDS[symbol]
+    try:
+        d = _cg_get(f"/coins/{cid}?localization=false&tickers=false&market_data=true&community_data=false&developer_data=false&sparkline=false")
+    except Exception:
+        return None
+    if not isinstance(d, dict) or "market_data" not in d:
+        return None
+    md = d.get("market_data") or {}
+    usd = lambda o: (o or {}).get("usd") if isinstance(o, dict) else None
+    crypto = {
+        "marketCap": usd(md.get("market_cap")), "rank": d.get("market_cap_rank"),
+        "volume24h": usd(md.get("total_volume")), "circulating": md.get("circulating_supply"),
+        "totalSupply": md.get("total_supply"), "maxSupply": md.get("max_supply"),
+        "ath": usd(md.get("ath")), "athChangePct": usd(md.get("ath_change_percentage")),
+        "high24h": usd(md.get("high_24h")), "low24h": usd(md.get("low_24h")),
+        "chg24h": md.get("price_change_percentage_24h"), "chg7d": md.get("price_change_percentage_7d"),
+        "chg30d": md.get("price_change_percentage_30d"), "chg1y": md.get("price_change_percentage_1y"),
+    }
+    desc = ((d.get("description") or {}).get("en") or "").split(". ")
+    profile = {
+        "name": d.get("name"), "sector": "Cryptocurrency",
+        "industry": ", ".join((d.get("categories") or [])[:2]) or None,
+        "website": ((d.get("links") or {}).get("homepage") or [None])[0] or None,
+        "description": (". ".join(desc[:3]))[:500] or None,
+    }
+    return {"available": True, "source": "coingecko", "assetClass": "crypto",
+            "crypto": crypto, "profile": profile, "stats": {}, "earnings": []}
+
+
 def fetch_quotes(symbols):
     key = "quotes:" + ",".join(symbols)
     cached = CACHE.get(key)
     if cached:
         return cached
-    # 1) CNBC real-time batch (key-less) for everything it can resolve
     out = {}
-    try:
-        out = _cnbc_quotes(symbols)
-    except Exception:
-        out = {}
-    # 2) fall back to Yahoo chart -> simulated for any symbol CNBC missed
+    # 1) crypto -> CoinGecko (accurate price/24h change/market cap)
+    crypto = [s for s in symbols if _is_crypto(s)]
+    if crypto:
+        try:
+            out.update(_coingecko_quotes(crypto))
+        except Exception:
+            pass
+    # 2) everything else -> CNBC real-time batch
+    rest = [s for s in symbols if s not in out]
+    if rest:
+        try:
+            out.update(_cnbc_quotes(rest))
+        except Exception:
+            pass
+    # 3) fall back to Yahoo chart -> simulated for anything still missing
     missing = [s for s in symbols if s not in out]
     if missing:
         with ThreadPoolExecutor(max_workers=8) as ex:
@@ -917,6 +1051,12 @@ def fetch_summary(symbol):
     if cached:
         return cached
     out = None
+    # 0) crypto -> CoinGecko (market cap, supply, ATH, performance)
+    if _is_crypto(symbol):
+        cg = _coingecko_summary(symbol)
+        if cg:
+            CACHE.set(key, cg, 300)
+            return cg
     # 1) KEY STATISTICS from CNBC (key-less, no quota -> always populated)
     cn = _cnbc_summary(symbol)
     if cn and cn.get("available"):

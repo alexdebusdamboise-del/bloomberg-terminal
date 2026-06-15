@@ -153,7 +153,7 @@
     { k: "6M", range: "6mo", interval: "1d", intraday: false },
     { k: "YTD", range: "ytd", interval: "1d", intraday: false },
     { k: "1Y", range: "1y", interval: "1d", intraday: false },
-    { k: "5Y", range: "5y", interval: "1wk", intraday: false },
+    { k: "5Y", range: "5y", interval: "1d", intraday: false },
     { k: "MAX", range: "max", interval: "1mo", intraday: false },
   ];
 
@@ -551,7 +551,7 @@
     ];
     $("#sh-stats").innerHTML = stats.map(([l, v]) => `<div class="sh-stat"><div class="l">${l}</div><div class="v">${v}</div></div>`).join("");
     $("#sb-ticker").textContent = `${sym}  ${price == null ? "" : fmtNum(price, dp)}  ${chg == null ? "" : (chg >= 0 ? "+" : "") + fmtNum(chg, dp) + " " + fmtPct(pct)}`;
-    $("#chart-title").textContent = `${sym} — ${(RANGES.find((r) => r.range === state.range) || {}).k} ${state.intraday ? "INTRADAY" : "DAILY"}`;
+    $("#chart-title").innerHTML = `${esc(sym)} — ${(RANGES.find((r) => r.range === state.range) || {}).k} ${state.intraday ? "INTRADAY" : "DAILY"} <span style="color:#666;font-weight:400;letter-spacing:0">· scroll: zoom · drag: pan · dbl-click: reset</span>`;
   }
 
   async function loadChart() {
@@ -568,6 +568,7 @@
       state.chart.setData({
         candles: d.candles, type: state.chartType, intraday: state.intraday,
         smaPeriods: state.intraday ? [] : activeSMAPeriods(), indicators: state.ind, showVolume: true, currency: d.currency,
+        dataId: state.symbol + ":" + state.range,
       });
       setStatus(true, "LOADED " + state.symbol);
     } catch (e) { setStatus(false, "CHART ERROR"); }
@@ -647,6 +648,35 @@
       pf.innerHTML = `<div class="ks-note">No company profile for this instrument.</div>`;
       return;
     }
+    // ---- crypto-specific rendering (market cap, supply, ATH, performance) ----
+    if (data.crypto) {
+      const c = data.crypto, pctSpan = (v) => v == null ? "—" : `<span class="${v >= 0 ? "up" : "down"}">${v >= 0 ? "+" : ""}${v.toFixed(2)}%</span>`;
+      const cr = [];
+      cr.push(techSummaryHTML());
+      cr.push(`<div class="ks-section">CRYPTO MARKET DATA <span class="ks-src">via CoinGecko</span></div>`);
+      cr.push(ksRow("Market Cap", fmtBig(c.marketCap)));
+      cr.push(ksRow("Market Cap Rank", c.rank != null ? "#" + c.rank : "—"));
+      cr.push(ksRow("24h Volume", fmtBig(c.volume24h)));
+      cr.push(ksRow("Circulating Supply", c.circulating != null ? fmtBig(c.circulating) : "—"));
+      cr.push(ksRow("Max Supply", c.maxSupply != null ? fmtBig(c.maxSupply) : "∞ uncapped"));
+      cr.push(ksRow("All-Time High", c.ath == null ? "—" : fmtNum(c.ath, 2) + (c.athChangePct != null ? ` <span class="${c.athChangePct >= 0 ? "up" : "down"}">(${c.athChangePct.toFixed(1)}%)</span>` : "")));
+      cr.push(ksRow("24h High / Low", `${c.high24h == null ? "—" : fmtNum(c.high24h, 2)} / ${c.low24h == null ? "—" : fmtNum(c.low24h, 2)}`));
+      cr.push(`<div class="ks-section">PERFORMANCE</div>`);
+      cr.push(ksRow("24 Hours", pctSpan(c.chg24h)));
+      cr.push(ksRow("7 Days", pctSpan(c.chg7d)));
+      cr.push(ksRow("30 Days", pctSpan(c.chg30d)));
+      cr.push(ksRow("1 Year", pctSpan(c.chg1y)));
+      ks.innerHTML = cr.join("");
+      const p = data.profile || {}, pr = [];
+      if (p.name) pr.push(["Name", esc(p.name)]);
+      if (p.sector) pr.push(["Type", esc(p.sector)]);
+      if (p.industry) pr.push(["Category", esc(p.industry)]);
+      if (p.website) pr.push(["Website", `<a href="${esc(p.website)}" target="_blank" rel="noopener">${esc(p.website)}</a>`]);
+      let h = pr.map(([l, v]) => `<div class="pf-row"><span class="l">${l}</span><span class="v">${v}</span></div>`).join("");
+      if (p.description) h += `<div class="pf-desc">${esc(p.description)}</div>`;
+      pf.innerHTML = h || `<div class="ks-note">No profile.</div>`;
+      return;
+    }
     const s = data.stats || {}, srcLabel = data.source === "twelvedata" ? "Twelve Data" : data.source === "cnbc" ? "CNBC" : "Yahoo";
     const rows = [];
     rows.push(techSummaryHTML());   // RSI, trend, MACD, signal (from chart)
@@ -719,7 +749,7 @@
     await loadChart();
     loadSummary(symbol);
     const d2 = await api("/api/chart?symbol=" + encodeURIComponent(symbol) + "&range=1d&interval=1d&prov=1").catch(() => ({}));
-    const q = d2.longName || d2.shortName || symbol;
+    const q = NAMES[symbol] || d2.longName || d2.shortName || symbol;
     state.newsQuery = q;
     loadNews($("#secnews"), q);
   }
@@ -1103,7 +1133,7 @@
       // light header refresh without disturbing chart interaction
       const sym = state.symbol, rng = state.range;
       api(`/api/chart?symbol=${encodeURIComponent(sym)}&range=${rng}&interval=${state.interval}&prov=1`)
-        .then((d) => { if (sym !== state.symbol || rng !== state.range) return; if (!d.error) { setSource(d.source === "sim"); renderHeader(d); if (state.chart) state.chart.setData({ candles: d.candles, type: state.chartType, intraday: state.intraday, smaPeriods: state.intraday ? [] : activeSMAPeriods(), indicators: state.ind, showVolume: true, currency: d.currency }); } })
+        .then((d) => { if (sym !== state.symbol || rng !== state.range) return; if (!d.error) { setSource(d.source === "sim"); renderHeader(d); if (state.chart) state.chart.setData({ candles: d.candles, type: state.chartType, intraday: state.intraday, smaPeriods: state.intraday ? [] : activeSMAPeriods(), indicators: state.ind, showVolume: true, currency: d.currency, dataId: sym + ":" + rng }); } })
         .catch(() => {});
     }
   }, 6000);

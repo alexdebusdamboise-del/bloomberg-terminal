@@ -244,6 +244,8 @@
       this.ind = { bb: false, ema: false, rsi: false, macd: false, vwap: false, fib: false, stoch: false, atr: false, obv: false };
       this.currency = "";
       this.hover = null;
+      this.viewLo = 0; this.viewHi = -1; this._dataId = null; this._prevN = 0;
+      this._dragging = false;
       this.dpr = window.devicePixelRatio || 1;
       this._bind();
       this._ro = new ResizeObserver(() => this.resize());
@@ -253,13 +255,51 @@
 
     _bind() {
       const c = this.canvas;
+      c.style.cursor = "crosshair";
       c.addEventListener("mousemove", (e) => {
         const r = c.getBoundingClientRect();
         this.mouse = { x: e.clientX - r.left, y: e.clientY - r.top };
-        this._updateHover();
+        if (!this._dragging) { this._updateHover(); this.render(); }
+      });
+      c.addEventListener("mouseleave", () => { if (!this._dragging) { this.mouse = null; this.hover = null; this.render(); } });
+      // wheel = zoom around cursor
+      c.addEventListener("wheel", (e) => {
+        if (!this.candles.length) return;
+        e.preventDefault();
+        const nFull = this.candles.length, L = this._layout();
+        let lo = this.viewLo, hi = this.viewHi; if (hi < lo) { lo = 0; hi = nFull - 1; }
+        const span = hi - lo + 1;
+        const r = c.getBoundingClientRect();
+        const frac = Math.max(0, Math.min(1, ((e.clientX - r.left) - L.plotLeft) / Math.max(1, L.plotRight - L.plotLeft)));
+        const center = lo + frac * (span - 1);
+        const factor = e.deltaY > 0 ? 1.25 : 0.8;
+        let ns = Math.max(8, Math.min(nFull, Math.round(span * factor)));
+        let nlo = Math.round(center - frac * (ns - 1)), nhi = nlo + ns - 1;
+        if (nlo < 0) { nlo = 0; nhi = ns - 1; }
+        if (nhi > nFull - 1) { nhi = nFull - 1; nlo = nhi - ns + 1; }
+        this.viewLo = Math.max(0, nlo); this.viewHi = Math.min(nFull - 1, nhi);
+        this._updateHover(); this.render();
+      }, { passive: false });
+      // drag = pan
+      c.addEventListener("mousedown", (e) => {
+        if (!this.candles.length) return;
+        this._dragging = true; this._dragX = e.clientX; this._dragLo = this.viewLo; this._dragHi = this.viewHi;
+        c.style.cursor = "grabbing";
+      });
+      window.addEventListener("mousemove", (e) => {
+        if (!this._dragging) return;
+        const nFull = this.candles.length, L = this._layout();
+        const span = this._dragHi - this._dragLo + 1, plotW = Math.max(1, L.plotRight - L.plotLeft);
+        const dx = Math.round((e.clientX - this._dragX) / plotW * (span - 1));
+        let lo = this._dragLo - dx, hi = this._dragHi - dx;
+        if (lo < 0) { hi -= lo; lo = 0; }
+        if (hi > nFull - 1) { lo -= (hi - (nFull - 1)); hi = nFull - 1; }
+        this.viewLo = Math.max(0, lo); this.viewHi = Math.min(nFull - 1, hi);
         this.render();
       });
-      c.addEventListener("mouseleave", () => { this.mouse = null; this.hover = null; this.render(); });
+      window.addEventListener("mouseup", () => { if (this._dragging) { this._dragging = false; c.style.cursor = "crosshair"; } });
+      // double-click = reset zoom
+      c.addEventListener("dblclick", () => { this.viewLo = 0; this.viewHi = this.candles.length - 1; this.render(); });
     }
 
     setData(opts) {
@@ -271,6 +311,16 @@
       if (opts.indicators) this.ind = Object.assign({}, this.ind, opts.indicators);
       if (opts.currency != null) this.currency = opts.currency;
       this._compute();
+      const n = this.candles.length;
+      const newId = opts.dataId != null ? opts.dataId : this._dataId;
+      if (newId !== this._dataId || this.viewHi < 0) {
+        this.viewLo = 0; this.viewHi = n - 1; this._dataId = newId;   // new symbol/range -> fit all
+      } else {
+        const span = this.viewHi - this.viewLo + 1;
+        if (this.viewHi >= this._prevN - 1) { this.viewHi = n - 1; this.viewLo = Math.max(0, n - span); }  // was at the live edge -> follow
+        else { this.viewHi = Math.min(this.viewHi, n - 1); this.viewLo = Math.max(0, Math.min(this.viewLo, this.viewHi - 1)); }
+      }
+      this._prevN = n;
       this.render();
     }
     setType(t) { this.type = t; this.render(); }
@@ -333,9 +383,9 @@
     }
 
     _updateHover() {
-      if (!this.mouse || !this.candles.length) { this.hover = null; return; }
+      if (!this.mouse || this.viewHi < this.viewLo) { this.hover = null; return; }
       const L = this._layout();
-      const n = this.candles.length;
+      const n = this.viewHi - this.viewLo + 1;   // visible count
       const x = Math.max(L.plotLeft, Math.min(L.plotRight, this.mouse.x));
       const frac = (x - L.plotLeft) / Math.max(1, L.plotRight - L.plotLeft);
       this.hover = Math.max(0, Math.min(n - 1, Math.round(frac * (n - 1))));
@@ -352,6 +402,23 @@
         ctx.fillStyle = THEME.text; ctx.font = "12px ui-monospace, Menlo, monospace";
         ctx.textAlign = "center"; ctx.fillText("NO DATA", this.W / 2, this.H / 2); return;
       }
+      // ---- zoom/pan: render only the visible [viewLo..viewHi] window ----
+      const _F = { c: this.candles, sma: this.smaSeries, ema: this.emaSeries, bb: this.bb, vwap: this.vwapData, fib: this.fib, rsi: this.rsiData, macd: this.macdData, stoch: this.stochData, atr: this.atrData, obv: this.obvData };
+      let _lo = this.viewLo, _hi = this.viewHi;
+      if (_hi < _lo || _hi > _F.c.length - 1 || _lo < 0) { _lo = 0; _hi = _F.c.length - 1; this.viewLo = _lo; this.viewHi = _hi; }
+      const _sl = (a) => a ? a.slice(_lo, _hi + 1) : a;
+      try {
+        this.candles = _F.c.slice(_lo, _hi + 1);
+        this.smaSeries = _F.sma ? _F.sma.map((s) => ({ period: s.period, data: _sl(s.data) })) : _F.sma;
+        this.emaSeries = _F.ema ? _F.ema.map((s) => ({ period: s.period, data: _sl(s.data) })) : _F.ema;
+        this.bb = _F.bb ? { mid: _sl(_F.bb.mid), up: _sl(_F.bb.up), lo: _sl(_F.bb.lo) } : null;
+        this.vwapData = _sl(_F.vwap);
+        this.fib = _F.fib ? fibLevels(this.candles) : null;
+        this.rsiData = _sl(_F.rsi);
+        this.macdData = _F.macd ? { line: _sl(_F.macd.line), signal: _sl(_F.macd.signal), hist: _sl(_F.macd.hist) } : null;
+        this.stochData = _F.stoch ? { k: _sl(_F.stoch.k), d: _sl(_F.stoch.d) } : null;
+        this.atrData = _sl(_F.atr);
+        this.obvData = _sl(_F.obv);
       const L = this._layout();
       const n = this.candles.length;
       const xOf = (i) => L.plotLeft + (i / Math.max(1, n - 1)) * (L.plotRight - L.plotLeft);
@@ -464,6 +531,11 @@
 
       // ---- crosshair + tooltip ----
       if (this.hover != null && this.mouse) this._drawCrosshair(ctx, L, xOf, yOf, lo, hi);
+      } finally {
+        this.candles = _F.c; this.smaSeries = _F.sma; this.emaSeries = _F.ema; this.bb = _F.bb;
+        this.vwapData = _F.vwap; this.fib = _F.fib; this.rsiData = _F.rsi; this.macdData = _F.macd;
+        this.stochData = _F.stoch; this.atrData = _F.atr; this.obvData = _F.obv;
+      }
     }
 
     _drawVolume(ctx, L, p, xOf, n) {
