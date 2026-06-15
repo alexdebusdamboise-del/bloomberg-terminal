@@ -290,8 +290,9 @@
         if (!this._dragging) return;
         const nFull = this.candles.length, L = this._layout();
         const span = this._dragHi - this._dragLo + 1, plotW = Math.max(1, L.plotRight - L.plotLeft);
+        // drag LEFT -> go back in time (older); drag RIGHT -> forward (recent)
         const dx = Math.round((e.clientX - this._dragX) / plotW * (span - 1));
-        let lo = this._dragLo - dx, hi = this._dragHi - dx;
+        let lo = this._dragLo + dx, hi = this._dragHi + dx;
         if (lo < 0) { hi -= lo; lo = 0; }
         if (hi > nFull - 1) { lo -= (hi - (nFull - 1)); hi = nFull - 1; }
         this.viewLo = Math.max(0, lo); this.viewHi = Math.min(nFull - 1, hi);
@@ -314,7 +315,11 @@
       const n = this.candles.length;
       const newId = opts.dataId != null ? opts.dataId : this._dataId;
       if (newId !== this._dataId || this.viewHi < 0) {
-        this.viewLo = 0; this.viewHi = n - 1; this._dataId = newId;   // new symbol/range -> fit all
+        // new symbol/range -> show the most RECENT ~60% so there's room to
+        // drag left (back in time). Double-click resets to fit-all.
+        this._dataId = newId;
+        const vc = Math.min(n, Math.max(30, Math.round(n * 0.6)));
+        this.viewHi = n - 1; this.viewLo = Math.max(0, n - vc);
       } else {
         const span = this.viewHi - this.viewLo + 1;
         if (this.viewHi >= this._prevN - 1) { this.viewHi = n - 1; this.viewLo = Math.max(0, n - span); }  // was at the live edge -> follow
