@@ -9,7 +9,9 @@ services:
     startCommand: python server.py --host 0.0.0.0
     autoDeploy: true
     envVars:
-      # Optional: paste a free Twelve Data key for charts/analyst/earnings.
-      # Leave unset and the app still works (CNBC + Yahoo + Google News).
+      # Twelve Data key -> charts, fundamentals, analyst forecasts, stock sparklines.
       - key: TWELVEDATA_API_KEY
+        sync: false
+      # Free CoinGecko "Demo" key -> reliable crypto data from datacenter IPs.
+      - key: COINGECKO_API_KEY
         sync: false

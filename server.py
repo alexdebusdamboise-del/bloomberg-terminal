@@ -748,8 +748,23 @@ def _is_crypto(sym):
     return sym in CG_IDS
 
 
+CG_KEY = os.environ.get("COINGECKO_API_KEY", "").strip()   # optional free Demo key (helps on datacenter/Render IPs)
+
+
 def _cg_get(path):
-    return _json_get("https://api.coingecko.com/api/v3" + path)
+    # A free CoinGecko "Demo" key avoids 429s from shared/datacenter IPs (Render).
+    base = "https://api.coingecko.com/api/v3"
+    sep = "&" if "?" in path else "?"
+    url = base + path + (f"{sep}x_cg_demo_api_key={urllib.parse.quote(CG_KEY)}" if CG_KEY else "")
+    headers = {"User-Agent": UA, "Accept": "application/json"}
+    if CG_KEY:
+        headers["x-cg-demo-api-key"] = CG_KEY
+    req = urllib.request.Request(url, headers=headers)
+    with urllib.request.urlopen(req, timeout=20) as resp:
+        raw = resp.read()
+        if resp.headers.get("Content-Encoding") == "gzip":
+            raw = gzip.decompress(raw)
+        return json.loads(raw.decode("utf-8", "replace"))
 
 
 def _coingecko_quotes(symbols):
