@@ -42,7 +42,7 @@
     RATES: ["^IRX", "US6M", "US1Y", "US2Y", "^FVX", "^TNX", "^TYX", "DE10Y", "GB10Y", "JP10Y"],
     CRYPTO: ["BTC-USD", "ETH-USD", "BNB-USD", "SOL-USD", "XRP-USD", "ADA-USD", "DOGE-USD",
       "AVAX-USD", "LINK-USD", "DOT-USD", "LTC-USD", "BCH-USD", "TRX-USD", "XLM-USD", "UNI-USD", "SHIB-USD"],
-    EQUITY: ["AAPL", "MSFT", "NVDA", "AMZN", "GOOGL", "META", "TSLA", "AVGO", "BRK-B", "JPM", "V", "WMT",
+    EQUITY: ["AAPL", "MSFT", "NVDA", "AMZN", "GOOGL", "META", "TSLA", "SPCX", "AVGO", "BRK-B", "JPM", "V", "WMT",
       "LLY", "ORCL", "MA", "NFLX", "XOM", "COST", "JNJ", "HD", "PG", "AMD", "CRM", "BAC"],
     EUROPE: ["ASML", "SAP", "NVS", "NVO", "AZN", "SHEL", "HSBC", "TTE", "UL", "DEO", "RIO", "BHP",
       "SAN", "UBS", "ING", "GSK", "SNY", "SIEGY", "LVMUY", "NSRGY", "RHHBY", "MBGYY", "VWAGY",
@@ -68,6 +68,7 @@
     "ZC=F": "Corn", "ZW=F": "Wheat", "ZS=F": "Soybeans", "KC=F": "Coffee", "SB=F": "Sugar", "CT=F": "Cotton",
     "^IRX": "US 3M", "US6M": "US 6M", "US1Y": "US 1Y", "US2Y": "US 2Y", "^FVX": "US 5Y",
     "^TNX": "US 10Y", "^TYX": "US 30Y", "DE10Y": "Germany 10Y", "GB10Y": "UK 10Y", "JP10Y": "Japan 10Y",
+    "SPCX": "SpaceX",
     "BTC-USD": "Bitcoin", "ETH-USD": "Ethereum", "BNB-USD": "BNB", "SOL-USD": "Solana", "XRP-USD": "XRP",
     "ADA-USD": "Cardano", "DOGE-USD": "Dogecoin", "AVAX-USD": "Avalanche", "LINK-USD": "Chainlink",
     "DOT-USD": "Polkadot", "LTC-USD": "Litecoin", "BCH-USD": "Bitcoin Cash", "TRX-USD": "Tron",
@@ -318,6 +319,8 @@
     "IBM", "NOW", "INTU", "AMAT", "MU", "ADI", "LRCX", "KLAC", "PANW", "SNPS", "CDNS", "ANET", "MRVL", "DELL", "HPQ",
     // Communication
     "GOOGL", "META", "NFLX", "DIS", "TMUS", "VZ", "T", "CMCSA", "CHTR", "EA", "TTWO", "WBD",
+    // Space / aerospace
+    "SPCX", "RKLB",
     // Consumer discretionary
     "AMZN", "TSLA", "HD", "MCD", "NKE", "SBUX", "LOW", "BKNG", "TJX", "ABNB", "ORLY", "CMG", "MAR", "GM", "F",
     // Consumer staples
